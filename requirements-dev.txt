@@ -1,0 +1,8 @@
+-r ml/requirements.txt
+-r modules/press-sensor/requirements.txt
+-r modules/anomaly-detector/requirements.txt
+-r service/requirements.txt
+pytest>=8,<10
+pyyaml>=6,<7
+pytest-asyncio>=1,<2
+ruff>=0.8,<1

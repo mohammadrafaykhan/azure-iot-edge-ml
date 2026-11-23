@@ -1,0 +1,24 @@
+# Local configuration and deployment state, never commit
+.env
+.edge-images.json
+*.pem
+*.key
+
+# Build outputs
+build/
+*.tar.gz
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+.pytest_cache/
+.ruff_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

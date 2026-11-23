@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            ml/requirements.txt
+            modules/*/requirements.txt
+            service/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Format
+        run: ruff format --check .
+
+      - name: Test
+        run: pytest
+
+  infrastructure:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build and lint Bicep
+        run: |
+          az bicep install
+          for file in infra/main.bicep infra/hub-routing.bicep; do
+            az bicep build --file "$file" --stdout > /dev/null
+          done
+
+      - name: ShellCheck the scripts that run on the edge VM
+        run: shellcheck infra/edge/*.sh
+
+      - name: Validate cloud-init
+        run: python3 -c "import yaml, sys; yaml.safe_load(open('infra/edge/cloud-init.yaml'))"
+
+  images:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Package the build context
+        run: python3 infra/package.py . build
+
+      - name: Build both module images (model v2) from the packaged context
+        run: |
+          mkdir context && tar -xzf build/context-*.tar.gz -C context
+          docker build --file context/modules/press-sensor/Dockerfile --tag press-sensor:ci context
+          docker build --file context/modules/anomaly-detector/Dockerfile --build-arg MODEL=v2 --tag anomaly-detector:ci context
+
+      - name: The detector image carries a model that matches its card
+        run: |
+          docker run --rm --entrypoint python anomaly-detector:ci -c \
+            "from pathlib import Path; from edgeml import model; b, c = model.load(Path('/app/model')); print(c.version, c.sha256)"

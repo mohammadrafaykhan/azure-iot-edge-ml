@@ -1,0 +1,10 @@
+{
+  "version": "1",
+  "description": "Baseline Isolation Forest on two hours of healthy operation per press.",
+  "algorithm": "isolationForest",
+  "trainingHours": 2,
+  "assets": 3,
+  "params": {"nEstimators": 50, "maxSamples": 128},
+  "falseAlarmRate": 0.005,
+  "seed": 7
+}

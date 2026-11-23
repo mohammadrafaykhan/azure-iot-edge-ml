@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "description": "One-Class SVM on standardized features: keeps scoring readings further outside the healthy envelope as more anomalous, so a single overheating signal is caught.",
+  "algorithm": "oneClassSvm",
+  "trainingHours": 4,
+  "assets": 3,
+  "params": {"nu": 0.01, "gamma": "scale"},
+  "falseAlarmRate": 0.005,
+  "seed": 11
+}

@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "azure-iot-edge-ml"
+version = "0.1.0"
+description = "Anomaly detection at the edge on Azure IoT Edge 1.6: ONNX models trained from code, rolled out by digest."
+requires-python = ">=3.12"
+readme = "README.md"
+license = "MIT"
+
+[project.scripts]
+edgectl = "service.cli:console"
+
+[tool.setuptools]
+packages = ["edgeml", "ml", "service"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["edgeml", "ml", "service", "detector", "anomaly_detector", "sensor", "press_sensor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "modules/anomaly-detector", "modules/press-sensor"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-q"
+filterwarnings = ["ignore::DeprecationWarning:skl2onnx.*", "ignore::FutureWarning"]

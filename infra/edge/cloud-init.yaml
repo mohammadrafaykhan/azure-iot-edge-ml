@@ -1,0 +1,57 @@
+#cloud-config
+# First boot of the edge device: install Moby and IoT Edge 1.6, generate the device's X.509 identity
+# on the device itself (the private key never leaves it), and stage the provisioning config. The
+# deploy script registers the certificate's thumbprint in IoT Hub and then applies the config.
+package_update: true
+packages:
+  - jq
+
+write_files:
+  - path: /etc/docker/daemon.json
+    permissions: "0644"
+    content: |
+      {"log-driver": "local", "log-opts": {"max-size": "10m", "max-file": "3"}}
+  - path: /etc/aziot/config.toml.pending
+    permissions: "0600"
+    content: |
+      [provisioning]
+      source = "manual"
+      iothub_hostname = "__HUB_HOSTNAME__"
+      device_id = "__DEVICE_ID__"
+
+      [provisioning.authentication]
+      method = "x509"
+      identity_cert = "file:///var/aziot/certs/device.cert.pem"
+      identity_pk = "file:///var/aziot/secrets/device.key.pem"
+
+runcmd:
+  - - bash
+    - -c
+    - |
+      set -euo pipefail
+      curl -fsSL https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb -o /tmp/packages-microsoft-prod.deb
+      dpkg -i /tmp/packages-microsoft-prod.deb
+      rm /tmp/packages-microsoft-prod.deb
+      apt-get update
+      # Separate transactions: aziot-edge's pre-install check needs a container runtime already
+      # installed, and apt may unpack it before Moby when both are in one command.
+      DEBIAN_FRONTEND=noninteractive apt-get install -y moby-engine moby-cli
+      DEBIAN_FRONTEND=noninteractive apt-get install -y moby-buildx || echo "moby-buildx unavailable; using the classic builder"
+      DEBIAN_FRONTEND=noninteractive apt-get install -y aziot-edge
+  - - bash
+    - -c
+    - |
+      set -euo pipefail
+      install -d -m 0755 /var/aziot/certs
+      install -d -m 0700 -o aziotks -g aziotks /var/aziot/secrets
+      openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -days 365 \
+        -subj "/CN=__DEVICE_ID__" \
+        -addext "basicConstraints=critical,CA:FALSE" -addext "extendedKeyUsage=clientAuth" \
+        -keyout /var/aziot/secrets/device.key.pem -out /var/aziot/certs/device.cert.pem
+      chown aziotks:aziotks /var/aziot/secrets/device.key.pem
+      chmod 0600 /var/aziot/secrets/device.key.pem
+      chown aziotcs:aziotcs /var/aziot/certs/device.cert.pem
+      chmod 0644 /var/aziot/certs/device.cert.pem
+      mkdir -p /srv/edgeHub /srv/edgeAgent
+      systemctl restart docker
+      touch /var/lib/edge-ready
